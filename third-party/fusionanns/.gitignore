@@ -1,0 +1,17 @@
+.cache
+.vscode
+.xmake
+
+data
+indices
+indices*
+build
+bin
+
+*.nsys-rep
+*.sqlite
+.qoder/
+venv/
+.venv/
+*.png
+*.txtsift1m.tar.gz

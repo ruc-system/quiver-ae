@@ -1,0 +1,96 @@
+#pragma once
+
+#include <cstdio>
+#include <cstring>
+#include <cstdlib>
+#include <cassert>
+#include <sys/stat.h>
+#include <sys/time.h>
+#include <unistd.h>
+
+#include "common/data_io.hpp"
+#include "common/recall.hpp"
+
+
+
+inline double elapsed() {
+  struct timeval tv;
+  gettimeofday(&tv, nullptr);
+  return tv.tv_sec + tv.tv_usec * 1e-6;
+}
+
+inline float *fvecs_read(const char *fname, size_t *d_out, size_t *n_out) {
+  FILE *f = fopen(fname, "r");
+  if (!f) {
+    fprintf(stderr, "could not open %s\n", fname);
+    perror("");
+    abort();
+  }
+  int d;
+  fread(&d, 1, sizeof(int), f);
+  assert((d > 0 && d < 1000000) || !"unreasonable dimension");
+  fseek(f, 0, SEEK_SET);
+  struct stat st;
+  fstat(fileno(f), &st);
+  size_t sz = st.st_size;
+  assert(sz % ((d + 1) * 4) == 0 || !"weird file size");
+  size_t n = sz / ((d + 1) * 4);
+
+  *d_out = d;
+  *n_out = n;
+  float *x = new float[n * (d + 1)];
+  size_t nr = fread(x, sizeof(float), n * (d + 1), f);
+  assert(nr == n * (d + 1) || !"could not read whole file");
+
+  // shift array to remove row headers
+  for (size_t i = 0; i < n; i++)
+    memmove(x + i * d, x + 1 + i * (d + 1), d * sizeof(*x));
+
+  fclose(f);
+  return x;
+}
+
+// not very clean, but works as long as sizeof(int) == sizeof(float)
+inline int *ivecs_read(const char *fname, size_t *d_out, size_t *n_out) {
+  return (int *)fvecs_read(fname, d_out, n_out);
+}
+
+template <class T>
+inline T *bin_read(const char *fname, size_t &d_out, size_t &n_out) {
+  return bin_common::read_typed_bin<T>(fname, d_out, n_out).release();
+}
+
+inline double calc_recall(int *res, int *gt, int num, int dim, int k) {
+  return bin_common::calc_recall(res, gt, num, dim, k);
+}
+
+inline uint8_t *bvecs_read(const char *fname, size_t *d_out, size_t *n_out) {
+  FILE *f = fopen(fname, "r");
+  if (!f) {
+    fprintf(stderr, "could not open %s\n", fname);
+    perror("");
+    abort();
+  }
+  int d;
+  fread(&d, 1, sizeof(int), f);
+  assert((d > 0 && d < 1000000) || !"unreasonable dimension");
+  fseek(f, 0, SEEK_SET);
+  struct stat st;
+  fstat(fileno(f), &st);
+  size_t sz = st.st_size;
+  assert(sz % (d + 4) == 0 || !"weird file size");
+  size_t n = sz / (d + 4);
+
+  *d_out = d;
+  *n_out = n;
+  uint8_t *x = new uint8_t [n * (d + 4)];
+  size_t nr = fread(x, sizeof(uint8_t), n * (d + 4), f);
+  assert(nr == n * (d + 4) || !"could not read whole file");
+
+  // shift array to remove row headers
+  for (size_t i = 0; i < n; i++)
+    memmove(x + i * d, x + 4 + i * (d + 4), d * sizeof(*x));
+
+  fclose(f);
+  return x;
+}
