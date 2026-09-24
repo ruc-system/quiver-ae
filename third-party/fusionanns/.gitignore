@@ -6,6 +6,9 @@ data
 indices
 indices*
 build
+!extern/SPTAG/ThirdParty/zstd/build/
+!extern/SPTAG/ThirdParty/zstd/build/cmake/
+!extern/SPTAG/ThirdParty/zstd/build/cmake/**
 bin
 
 *.nsys-rep
