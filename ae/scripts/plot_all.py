@@ -913,6 +913,8 @@ def fig_fusion(corpus: Corpus, out: Path) -> bool:
             if p.system == "Quiver" and p.dataset == dataset
             and "_1ssd" in p.stem and p.qps > 0
         ]
+        # Keep the paper's Quiver latency window; FusionANNS itself has no
+        # hard latency or Recall cutoff and is handled below by Pareto only.
         qpoints = [
             p for p in qpoints
             if p.latency("p99", corpus.prefer_batch(dataset)) <= QUIVER_PLOT_LAT_MS
@@ -949,6 +951,8 @@ def fig_fusion(corpus: Corpus, out: Path) -> bool:
         if flat_x:
             ps.prepare_tradeoff(ax, flat_x, flat_y, "upper left")
             expand_ylim_above_ticks(ax)
+        if family == "deep":
+            ax.set_ylim(0, 30000)
         ps.panel_label(ax, f"{family.upper()}1B", "upper left")
 
     if not drawn:
@@ -962,6 +966,7 @@ def fig_fusion(corpus: Corpus, out: Path) -> bool:
         legends=[{"handles": handles, "labels": labels, "ax": None}],
         left_pad=0.08,
         ylabel_out=0.06,
+        subplot_gap=0.32,
     )
     return True
 

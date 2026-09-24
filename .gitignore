@@ -68,4 +68,6 @@ probe_outputs/
 /scripts/
 
 
-AI.md
+/*.md
+!/README.md
+!/README-AE.md

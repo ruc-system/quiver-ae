@@ -57,18 +57,27 @@ run_one() {
   use_1ssd "${OUT}/ssd_list_${DATASET}.txt"
 
   local pw q fusion_dataset fusion_index fusion_query fusion_gt
+  local fusion_threads fusion_thread_list fusion_nprobe_list fusion_rerank_list
   case "${family}" in
     sift)
       fusion_dataset=sift100m
       fusion_index="${FUSIONANNS_SIFT100M_INDEX}"
       fusion_query="${FUSIONANNS_SIFT100M_QUERY}"
       fusion_gt="${FUSIONANNS_SIFT100M_GT}"
+      fusion_threads="${FUSIONANNS_SIFT_THREADS}"
+      fusion_thread_list="${FUSIONANNS_SIFT_THREAD_LIST}"
+      fusion_nprobe_list="${FUSIONANNS_SIFT_NPROBE_LIST}"
+      fusion_rerank_list="${FUSIONANNS_SIFT_RERANK_LIST}"
       ;;
     deep)
       fusion_dataset=deep100m
       fusion_index="${FUSIONANNS_DEEP100M_INDEX}"
       fusion_query="${FUSIONANNS_DEEP100M_QUERY}"
       fusion_gt="${FUSIONANNS_DEEP100M_GT}"
+      fusion_threads="${FUSIONANNS_DEEP_THREADS}"
+      fusion_thread_list="${FUSIONANNS_DEEP_THREAD_LIST}"
+      fusion_nprobe_list="${FUSIONANNS_DEEP_NPROBE_LIST}"
+      fusion_rerank_list="${FUSIONANNS_DEEP_RERANK_LIST}"
       ;;
     *)
       echo "unsupported FusionANNS family: ${family}" >&2
@@ -125,10 +134,10 @@ run_one() {
       --rerank_size "${FUSIONANNS_RERANK}" \
       --queries "${FUSIONANNS_QUERIES}" \
       --batch_size 32 \
-      --threads "${FUSIONANNS_THREADS}" \
-      --sweep_threads "${FUSIONANNS_THREAD_LIST}" \
-      --sweep_nprobe "${FUSIONANNS_NPROBE_LIST}" \
-      --sweep_rerank "${FUSIONANNS_RERANK_LIST}" \
+      --threads "${fusion_threads}" \
+      --sweep_threads "${fusion_thread_list}" \
+      --sweep_nprobe "${fusion_nprobe_list}" \
+      --sweep_rerank "${fusion_rerank_list}" \
       --warmup "${FUSIONANNS_WARMUP}" \
       --repeat 1 \
       --io_backend "${FUSIONANNS_IO_BACKEND}" \
