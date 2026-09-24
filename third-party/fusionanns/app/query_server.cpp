@@ -103,6 +103,26 @@ std::string resolve_index_component(const std::string &label,
   throw std::runtime_error(oss.str());
 }
 
+IOManager::VectorStorage detect_vector_storage(const fs::path &index_path) {
+  const fs::path layout_path = index_path / "packed_layout";
+  if (!fs::exists(layout_path)) {
+    return IOManager::VectorStorage::Float32;
+  }
+
+  std::ifstream input(layout_path);
+  std::string line;
+  while (std::getline(input, line)) {
+    if (line == "dtype=u8") {
+      return IOManager::VectorStorage::Uint8;
+    }
+    if (line == "dtype=float32" || line == "dtype=f32") {
+      return IOManager::VectorStorage::Float32;
+    }
+  }
+  throw std::runtime_error("Unsupported packed vector layout: " +
+                           layout_path.string());
+}
+
 void load_groundtruth_bin(const std::string &path, std::vector<int> &data,
                           long &num, int &dim) {
   std::ifstream f(path, std::ios::binary);
@@ -406,15 +426,22 @@ int main(int argc, char **argv) {
           throw std::runtime_error("Invalid dimension inferred from PQ codec");
         }
 
+        const auto vector_storage =
+            detect_vector_storage(fs::path(config.index_path));
         io_manager = std::make_unique<IOManager>(
             (fs::path(config.index_path) / "vector_location.map").string(),
             (fs::path(config.index_path) / "packed_raw_vectors.bin").string(),
-            dim, backend_kind, cache_pages);
+            dim, backend_kind, cache_pages, vector_storage);
         metadata = std::make_unique<PostingListAccessor>(metadata_path);
 
         std::cout << "  > PQ codec: " << pq_codec_path << " (d=" << dim << ')'
                   << std::endl;
         std::cout << "  > PQ codes: " << pq_codes_path << std::endl;
+        std::cout << "  > Raw vectors: "
+                  << (vector_storage == IOManager::VectorStorage::Uint8
+                          ? "uint8"
+                          : "float32")
+                  << std::endl;
         std::cout << "  > Posting lists: " << metadata->nlist()
                   << " lists covering " << metadata->total_postings()
                   << " postings (" << metadata_path << ')' << std::endl;

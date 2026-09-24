@@ -239,8 +239,9 @@ public:
 
 class IOManager::Backend {
 public:
-  Backend(const std::vector<VectorLocation> &map, int dim)
-      : location_map_(map), dim_(dim) {}
+  Backend(const std::vector<VectorLocation> &map, int dim,
+          IOManager::VectorStorage storage)
+      : location_map_(map), dim_(dim), storage_(storage) {}
   virtual ~Backend() = default;
 
   virtual void get_vectors(const std::vector<long> &ids,
@@ -249,8 +250,26 @@ public:
   virtual IOManager::IOGlobal snapshot() const = 0;
 
 protected:
+  size_t encoded_vector_bytes() const {
+    return static_cast<size_t>(dim_) *
+           (storage_ == IOManager::VectorStorage::Uint8 ? sizeof(uint8_t)
+                                                        : sizeof(float));
+  }
+
+  void decode_vector(const char *src, float *dst) const {
+    if (storage_ == IOManager::VectorStorage::Uint8) {
+      const auto *values = reinterpret_cast<const uint8_t *>(src);
+      for (int d = 0; d < dim_; ++d) {
+        dst[d] = static_cast<float>(values[d]);
+      }
+      return;
+    }
+    std::memcpy(dst, src, static_cast<size_t>(dim_) * sizeof(float));
+  }
+
   const std::vector<VectorLocation> &location_map_;
   int dim_ = 128;
+  IOManager::VectorStorage storage_ = IOManager::VectorStorage::Float32;
 };
 
 namespace {
@@ -764,8 +783,9 @@ aligned_buf_ptr make_aligned_page() {
 class PageCacheBackend : public IOManager::Backend {
 public:
   PageCacheBackend(const std::vector<VectorLocation> &map, int dim,
-                   std::unique_ptr<IPageReader> reader, size_t max_pages)
-      : IOManager::Backend(map, dim), reader_(std::move(reader)),
+                   std::unique_ptr<IPageReader> reader, size_t max_pages,
+                   IOManager::VectorStorage storage)
+      : IOManager::Backend(map, dim, storage), reader_(std::move(reader)),
         max_pages_(max_pages), cache_enabled_(max_pages > 0),
         wait_table_(4096) {
     if (!reader_) {
@@ -836,7 +856,6 @@ public:
     page_views.reserve(pages.size());
     acquire_pages(pages, page_views);
 
-    const size_t bytes = static_cast<size_t>(dim_) * sizeof(float);
     for (size_t i = 0; i < ids.size(); ++i) {
       long vec_id = ids[i];
       const auto &loc = location_map_[vec_id];
@@ -846,8 +865,7 @@ public:
                                  std::to_string(loc.page_id));
       }
       const char *src = it->second->data + loc.offset_in_page;
-      char *dst = reinterpret_cast<char *>(&out_data[i * dim_]);
-      std::memcpy(dst, src, bytes);
+      decode_vector(src, out_data.data() + i * dim_);
     }
 
     for (auto &kv : page_views) {
@@ -889,7 +907,6 @@ private:
     misses_.fetch_add(pages.size(), std::memory_order_relaxed);
     io_count_.fetch_add(pages.size(), std::memory_order_relaxed);
 
-    const size_t bytes = static_cast<size_t>(dim_) * sizeof(float);
     for (size_t i = 0; i < ids.size(); ++i) {
       long vec_id = ids[i];
       const auto &loc = location_map_[vec_id];
@@ -899,8 +916,7 @@ private:
                                  std::to_string(loc.page_id));
       }
       const char *src = it->second.get() + loc.offset_in_page;
-      char *dst = reinterpret_cast<char *>(&out_data[i * dim_]);
-      std::memcpy(dst, src, bytes);
+      decode_vector(src, out_data.data() + i * dim_);
     }
   }
 
@@ -1142,8 +1158,9 @@ private:
 class MMapBackend : public IOManager::Backend {
 public:
   MMapBackend(const std::vector<VectorLocation> &map, int dim,
-              const std::string &packed_vectors_file)
-      : IOManager::Backend(map, dim) {
+              const std::string &packed_vectors_file,
+              IOManager::VectorStorage storage)
+      : IOManager::Backend(map, dim, storage) {
     initialize(packed_vectors_file);
   }
 
@@ -1174,7 +1191,7 @@ public:
 
     hits_.fetch_add(unique_pages.size(), std::memory_order_relaxed);
 
-    const size_t bytes = static_cast<size_t>(dim_) * sizeof(float);
+    const size_t bytes = encoded_vector_bytes();
     for (size_t i = 0; i < ids.size(); ++i) {
       long vec_id = ids[i];
       const auto &loc = location_map_[vec_id];
@@ -1184,8 +1201,7 @@ public:
         throw std::out_of_range("Vector offset exceeds mapped range");
       }
       const char *src = mapped_base_ + offset;
-      char *dst = reinterpret_cast<char *>(&out_data[i * dim_]);
-      std::memcpy(dst, src, bytes);
+      decode_vector(src, out_data.data() + i * dim_);
     }
   }
 
@@ -1248,7 +1264,8 @@ private:
 
 IOManager::IOManager(const std::string &map_file,
                      const std::string &packed_vectors_file, int dim,
-                     BackendKind kind, size_t cache_pages)
+                     BackendKind kind, size_t cache_pages,
+                     VectorStorage storage)
     : dim_(dim) {
   load_binary<VectorLocation>(map_file, location_map_);
   if (location_map_.empty()) {
@@ -1259,16 +1276,19 @@ IOManager::IOManager(const std::string &map_file,
   case BackendKind::Pread:
     backend_ = std::make_unique<PageCacheBackend>(
         location_map_, dim_,
-        std::make_unique<PreadPageReader>(packed_vectors_file), cache_pages);
+        std::make_unique<PreadPageReader>(packed_vectors_file), cache_pages,
+        storage);
     break;
   case BackendKind::MMap:
     backend_ =
-        std::make_unique<MMapBackend>(location_map_, dim_, packed_vectors_file);
+        std::make_unique<MMapBackend>(location_map_, dim_, packed_vectors_file,
+                                     storage);
     break;
   case BackendKind::IoUring:
     backend_ = std::make_unique<PageCacheBackend>(
         location_map_, dim_,
-        std::make_unique<IoUringPageReader>(packed_vectors_file), cache_pages);
+        std::make_unique<IoUringPageReader>(packed_vectors_file), cache_pages,
+        storage);
     break;
   default:
     throw std::invalid_argument("Unsupported IO backend kind");

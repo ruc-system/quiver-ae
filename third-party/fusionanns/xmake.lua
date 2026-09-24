@@ -173,11 +173,12 @@ add_requires("openmp", "cli11", "SPTAG", "cccl", "cutlass")
 
 set_policy("build.ccache", true)
 
--- 统一配置你机器的 CUDA 架构：
---   - "sm_89" 生成 SASS（本机架构）
---   - "compute_89" 额外生成 PTX 以提升兼容性
---   如需自适配，可改成 "native"（自动检测本机 GPU）
-local cuda_gencodes = { "sm_80", "compute_80" }
+-- Include a runnable A100 image and forward-compatible PTX.  PTX alone is
+-- not a fallback to older GPUs: an sm_89-only build has no runnable image on
+-- an A100 (sm_80), and an unchecked launch would leave output buffers stale.
+-- Override this list with FUSIONANNS_CUGENCODES in ae/scripts/fusionanns_build.sh
+-- when adding another native SASS target.
+local cuda_gencodes = { "sm_80", "sm_89", "compute_80" }
 
 -- ===== 静态库：包含 CPU 与 CUDA 源码 =====
 target("fusionanns_lib")

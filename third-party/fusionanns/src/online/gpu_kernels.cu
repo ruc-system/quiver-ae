@@ -323,7 +323,10 @@ void compute_all_pq_distances(const uint8_t *all_pq_codes_gpu,
         out_dists);
     break;
   }
-  // CUDA_CHECK(cudaGetLastError());
+  // Report an invalid configuration (for example, a missing cubin for the
+  // active GPU) at the launch site.  Without this check the following copy
+  // can consume an untouched output buffer and make recall look plausible.
+  CUDA_CHECK(cudaGetLastError());
 }
 
 void upload_pq_codebooks_to_gpu(const faiss::ProductQuantizer &pq,
@@ -364,7 +367,7 @@ void build_distance_table_gpu(const float *d_query, const float *d_codebooks,
   const size_t shared_bytes = static_cast<size_t>(dsub) * sizeof(float);
   build_distance_table_kernel<<<blocks, threads, shared_bytes, stream>>>(
       d_query, d_codebooks, d_table, M, ksub, dsub);
-  // CUDA_CHECK(cudaGetLastError());
+  CUDA_CHECK(cudaGetLastError());
 }
 
 #ifdef FUSIONANNS_USE_CUVS_SELECT_K

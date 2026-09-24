@@ -1677,7 +1677,9 @@ run_once_impl(ScorerT &scorer, const ServerConfig &cfg, IOManager &io_manager,
     }
   }
 
-  cudaDeviceSynchronize();
+  // Surface asynchronous kernel failures before returning measurements.  A
+  // failed launch must never be reported as a successful low-recall run.
+  CUDA_CHECK(cudaDeviceSynchronize());
   cudaProfilerStop();
 
   return result;

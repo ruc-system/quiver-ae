@@ -19,12 +19,14 @@ public:
   };
 
   enum class BackendKind { Pread, MMap, IoUring };
+  enum class VectorStorage { Float32, Uint8 };
 
   static constexpr size_t kDefaultCachePages = 1048576; // 4GB for 4KB pages
 
   IOManager(const std::string &map_file, const std::string &packed_vectors_file,
             int dim, BackendKind kind = BackendKind::Pread,
-            size_t cache_pages = kDefaultCachePages);
+            size_t cache_pages = kDefaultCachePages,
+            VectorStorage storage = VectorStorage::Float32);
   ~IOManager();
 
   IOManager(const IOManager &) = delete;
