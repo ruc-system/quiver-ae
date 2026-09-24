@@ -16,10 +16,19 @@ if [[ ! -f "${FUSIONANNS_DIR}/xmake.lua" ]]; then
   echo "missing ${FUSIONANNS_DIR}/xmake.lua" >&2
   exit 1
 fi
-if [[ ! -f "${FUSIONANNS_DIR}/extern/SPTAG/ThirdParty/zstd/build/cmake/CMakeLists.txt" ]]; then
-  echo "missing vendored SPTAG zstd under ${FUSIONANNS_DIR}/extern/SPTAG" >&2
-  exit 1
-fi
+required_cmake_files=(
+  "extern/faiss/CMakeLists.txt"
+  "extern/faiss/faiss/CMakeLists.txt"
+  "extern/SPTAG/CMakeLists.txt"
+  "extern/SPTAG/AnnService/CMakeLists.txt"
+  "extern/SPTAG/ThirdParty/zstd/build/cmake/CMakeLists.txt"
+)
+for cmake_file in "${required_cmake_files[@]}"; do
+  if [[ ! -f "${FUSIONANNS_DIR}/${cmake_file}" ]]; then
+    echo "missing vendored FusionANNS dependency file: ${cmake_file}" >&2
+    exit 1
+  fi
+done
 
 if [[ -n "${FUSIONANNS_CUGENCODES}" ]]; then
   python3 - "${FUSIONANNS_DIR}/xmake.lua" "${FUSIONANNS_CUGENCODES}" <<'PY'
