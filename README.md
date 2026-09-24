@@ -124,14 +124,14 @@ See the [Artifact Evaluation Guide](README-AE.md) for CUDA installation, index p
 
 ## 📖 Citation
 
-If you use Quiver in your research, please cite our forthcoming ATC'26 paper:
+If you use Quiver in your research, please cite our forthcoming ACM SIGOPS ATC '26 paper:
 
 ```bibtex
 @inproceedings{wu2026quiver,
   author    = {Puqing Wu and Minhui Xie and Hao Guo and Jie Yin and
                Sen Yang and Youyou Lu and Yunpeng Chai},
   title     = {Quiver: Taming Throughput-Latency Tradeoff in {GPU-SSD} {ANNS}},
-  booktitle = {2026 USENIX Annual Technical Conference (USENIX ATC 26)},
+  booktitle = {ACM SIGOPS Annual Technical Conference (ACM SIGOPS ATC '26)},
   year      = {2026},
   note      = {To appear}
 }
