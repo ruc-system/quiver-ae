@@ -75,6 +75,7 @@ int main(int argc, char** argv) {
   float recall_threshold = 0.9f;
   std::string step_recall_csv = "quiver_step_recall.csv";
   std::string final_recall_csv;
+  std::string result_prefix;
   std::string early_exit_policy_name = "gpruning";
 
   bin_common::register_long_only_help(program);
@@ -135,6 +136,11 @@ int main(int argc, char** argv) {
   program.add_argument("--final-recall-csv")
       .store_into(final_recall_csv)
       .help("CSV output path for final per-query recall after normal search exits.");
+  program.add_argument("--result-prefix")
+      .store_into(result_prefix)
+      .help("Write search output to <prefix>_ids.bin and "
+            "<prefix>_distances.bin. Each file starts with int32 count and "
+            "int32 topk, followed by row-major values.");
   program.add_argument("--early-exit-policy")
       .default_value(std::string("gpruning"))
       .store_into(early_exit_policy_name)
@@ -206,6 +212,12 @@ int main(int argc, char** argv) {
           : parse_int_list_arg(num_blocks_list, "--num-blocks-list");
   bin_common::validate_positive_list_or_die(
       run_num_blocks, "--num-blocks-list");
+  if (!result_prefix.empty() && run_num_blocks.size() != 1) {
+    std::cerr << "--result-prefix cannot be combined with a multi-value "
+                 "--num-blocks-list"
+              << std::endl;
+    return 1;
+  }
 
   auto setup = bin_common::prepare_search_setup(shared_args);
   bin_common::GroundTruthData step_recall_gt;
@@ -297,6 +309,12 @@ int main(int argc, char** argv) {
     bin_common::print_recall_report(shared_args, setup);
     bin_common::write_per_query_recall_csv(
         shared_args, setup, final_recall_csv);
+    try {
+      bin_common::write_search_results(shared_args, setup, result_prefix);
+    } catch (const std::exception& err) {
+      std::cerr << err.what() << std::endl;
+      return 1;
+    }
   }
   return 0;
 }

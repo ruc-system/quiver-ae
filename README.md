@@ -1,217 +1,138 @@
-# [ATC'26 Artifact] Quiver Artifact Evaluation Guide
+<p align="center">
+  <img src="readme-img/quiver-wordmark.svg" alt="Quiver" width="55%">
+</p>
 
-Welcome to the artifact repository of the ATC'26 accepted paper: *Quiver: Taming the Throughput-Latency Tradeoff in GPU-SSD ANNS*!
+<h3 align="center">
+A low-latency, high-throughput, and billion-scale GPU-SSD vector search system.
+</h3>
 
-Should there be any questions, please contact the authors in HotCRP. The authors will respond to each question within 24hrs and as soon as possible.
+<p align="center">
+  <a href="README-AE.md"><strong>ATC'26 Artifact Evaluation Guide</strong></a>
+</p>
 
-## Main Claims
+## ✨ Key Features
 
-**Major Claim 1:** At matched Recall@10, Quiver advances the throughput-latency Pareto frontier over existing graph-based GPU-SSD ANNS systems, achieving higher peak throughput and lower P99 latency at matched throughput. (Figures 1 and 5)
+| Feature | Description |
+|---------|-------------|
+| ⚡&nbsp;**Ultra-Low&nbsp;Latency** | 2.94 ms P99 on SIFT-1B and 4.73 ms P99 on DEEP-1B (top-10, 90% recall, 4 SSDs) |
+| 📈&nbsp;**High&nbsp;Throughput** | 104.5K QPS on SIFT-1B and 59.5K QPS on DEEP-1B (top-10, 90% recall, 4 SSDs) |
+| 🌐&nbsp;**Billion-Scale&nbsp;Search** | Searches SIFT-1B and DEEP-1B on a single 40 GB GPU, with the billion-scale graph stored on NVMe SSDs |
+| 💾&nbsp;**Memory&nbsp;Efficient** | Keeps only 32 GB PQ codes in GPU memory instead of loading the full graph into GPU memory |
+| 🐍&nbsp;**Easy-to-Use** | Both Python (`NumPy`-native) and C++ interfaces are supported |
+| 🔌&nbsp;**Flexible&nbsp;Backends** | Use the SPDK backend for direct NVMe access, or the memory backend with `mmap` and `heap` loading modes |
+| 🗄️&nbsp;**Direct&nbsp;NVMe&nbsp;I/O** | SPDK-based userspace I/O supports direct access to one or multiple NVMe SSDs with page-level striping |
 
-**Major Claim 2:** At matched Recall@10, Quiver outperforms the cluster-based GPU-SSD system FusionANNS in both peak throughput and throughput under P99 latency constraints. (Figure 6)
+> Results use Recall@10 = 0.90 on an NVIDIA A100 40 GB GPU with four NVMe SSDs.
 
-**Major Claim 3:** Quiver's In-Kernel Query Switching (+S) and Occupancy-Aware Context Switching (+C) work synergistically to improve performance, while tuning the per-CTA query context count Q_num balances GPU utilization against queueing delay. (Figures 7 and 8)
+## 📊 Performance Comparison
 
-## Overview
+Quiver is suitable for both **high-throughput** and **latency-sensitive** billion-scale ANNS.
 
-### Directory structure
+| Dataset | Dimension | Recall@10 | P99 Target | Quiver | FlashANNS | GustANN |
+|---------|-----------|-----------|------------|--------|-----------|---------|
+| SIFT-1B | 128 | 0.90 | ≤10 ms | ✅ **97.8K QPS** | 63.8K QPS | ❌ 20.4 ms minimum P99 |
+| DEEP-1B | 96 | 0.90 | ≤10 ms | ✅ **45.0K QPS** | 26.8K QPS | ❌ 33.8 ms minimum P99 |
+| SIFT-1B | 128 | 0.95 | ≤10 ms | ✅ **42.5K QPS** | 28.6K QPS | ❌ 29.5 ms minimum P99 |
+| DEEP-1B | 96 | 0.95 | ≤10 ms | ✅ **12.7K QPS** | ❌ 12.8 ms minimum P99 | ❌ 51.7 ms minimum P99 |
 
-```
-quiver-ae/           # artifact root
-|-- bin/             # executable entry points
-|-- src/
-|   |-- quiver/      # kernels and I/O control
-|   |-- flashanns/   # FlashANNS
-|   |-- gustann/     # GustANN
-|   +-- shared/      # index, I/O, and metrics
-|-- deps/
-|   +-- spdk/        # userspace NVMe stack
-|-- third-party/
-|   +-- fusionanns/  # FusionANNS
-+-- ae/              # evaluation package
-    |-- config.env   # GPU, paths, and PCIe
-    |-- scripts/     # build, run, and plot
-    |-- figures/      # reproduced paper figures (vector PDFs)
-    +-- results/     # raw logs and CSVs
-        +-- Pre-executed-logs/ # reference logs
-```
+> Recall@10 = 0.90/0.95, NVIDIA A100 40 GB GPU, four Samsung PM1743 NVMe SSDs.
 
-### Overview of Quiver
+<p align="center">
+  <img src="readme-img/e2e.png" alt="Quiver end-to-end performance comparison on SIFT-1B and DEEP-1B" width="90%">
+</p>
 
-A persistent GPU kernel runs the search. Each CTA holds multiple query contexts. In-kernel query switching (§3.2) runs another ready context when one waits on an SSD read. Occupancy-aware context switching (§3.3) chooses how many contexts stay resident.
+---
 
-<img src="readme-img/overview-small.png" alt="Overview of Quiver" width="500">
+## 🚀 Quick Start
 
-## Environment Setup
+For best performance, we recommend Ubuntu 24.04 with CUDA 12.x and SPDK-compatible NVMe SSDs.
 
-**To artifact reviewers:** on our server, skip this section and go to [Evaluate the Artifact](#evaluate-the-artifact). The environment there is already prepared. On another machine, follow the steps below.
+### 🏗️ Build
 
-### Hardware Requirements
-
-A GPU with at least 40 GB of memory is required, since the billion-scale PQ codes occupy 32 GB. The host needs 64 GB of memory and four NVMe SSDs. Binding these SSDs needs passwordless `sudo`.
-
-### Software Requirements
-
-Install the following software.
-
-**CUDA.** Quiver, FlashANNS, and GustANN are compiled with CUDA 12.x. On Ubuntu 24.04, install the toolkit and put `nvcc` on `PATH`:
+Install the build dependencies:
 
 ```bash
-wget -O /tmp/cuda-keyring.deb \
-"https://developer.download.nvidia.com/compute/cuda/repos/ubuntu2404/x86_64/cuda-keyring_1.1-1_all.deb"
-sudo dpkg -i /tmp/cuda-keyring.deb
 sudo apt-get update
-sudo apt-get install -y cuda-toolkit-12-8
-export PATH=/usr/local/cuda/bin:$PATH
-```
+sudo apt-get install -y build-essential cmake python3-dev python3-pip python3-venv
 
-**SPDK.** SPDK provides the userspace NVMe path. The source is in `deps/spdk`. Install its dependencies and build it:
-
-```bash
+# Install SPDK dependencies and build the bundled SPDK.
 sudo deps/spdk/scripts/pkgdep.sh
-cd deps/spdk
-./configure
-make -j
+cd deps/spdk && ./configure && make -j
+cd ../..
 ```
 
-**FusionANNS.** This baseline is built with xmake. Install Boost, OpenBLAS, liburing, and xmake:
+Build the Quiver search engine and SSD writer:
 
 ```bash
-sudo apt-get install -y libboost-all-dev \
-    libopenblas-dev liburing-dev
-curl -fsSL https://xmake.io/shget.text | bash
+cmake -S . -B build \
+  -DCMAKE_BUILD_TYPE=Release \
+  -DQUIVER_ENABLE_SPDK=ON \
+  -DQUIVER_BUILD_STRAWMEN=OFF
+cmake --build build -j"$(nproc)" --target quiver_search spdk_write
 ```
 
-## Evaluate the Artifact
-
-### Login to the provided server
-
-The project root on the pre-configured AE server is `/mnt/nvme12/wpq-ae/home/quiver-ae`.
+Install the Python interface:
 
 ```bash
-ssh -p 1558 wpq@536501659b72a831.natapp.cc
-cd /mnt/nvme12/wpq-ae/home/quiver-ae
+python3 -m venv .venv
+source .venv/bin/activate
+pip install -e .
 ```
 
-### Building Quiver from source
+### ⚡ C++
 
-Compile Quiver and the baselines with:
+Search an existing on-disk index with Quiver:
 
 ```bash
-./ae/scripts/build.sh
+SPDK_BASE_LBA=0 build/bin/quiver_search \
+  --index-dir /path/to/index \
+  --query /path/to/query.u8bin \
+  --data-type uint8 \
+  --topk 10 \
+  --ef-search 45 \
+  --ssd-list-file /path/to/ssd_list.txt \
+  --repeat 1 \
+  --result-prefix /tmp/quiver-result
 ```
 
-### Hello-world example
+The result IDs and distances are written to `/tmp/quiver-result_ids.bin` and `/tmp/quiver-result_distances.bin`. Omit `--ssd-list-file` to use the memory backend; select its loading mode with `--memory-backend mmap` or `--memory-backend heap`.
 
-Run the one-minute SIFT-1M smoke test before reproducing the paper figures:
+### 🐍 Python
 
-```bash
-./ae/scripts/hello_world.sh
+```python
+from quiver import IndexQuiver
+
+idx = IndexQuiver(
+    index_dir="/path/to/index",
+    data_type="uint8",
+    ssd_list_file="/path/to/ssd_list.txt",
+    spdk_base_lba=0,
+)
+
+ids, distances = idx.search(queries, topk=10, ef_search=45)
 ```
 
-On success, it prints output similar to:
+`queries` is a two-dimensional NumPy array. Pass PCI addresses directly through `ssds=[...]`, or use an existing `ssd_list_file`, to select the SPDK backend. Omit both options to use the memory backend with either `mmap` or `heap` mode.
 
-```
-===== hello-world result =====
-Dataset: SIFT-1M
-Sweep: num_blocks=108 queries_per_block=2
-  Recall @10 = 0.9057
-  QPS = 94669.3  avg = 2.25 ms  P99 = 6.98 ms
-===============================
-```
+See the [Artifact Evaluation Guide](README-AE.md) for CUDA installation, index preparation, SPDK device binding, and full experiment reproduction.
 
-### Run all experiments
+## 📰 Updates
 
-The scripts reproduce all six paper figures at once, or one figure at a time.
+- **Sep 24, 2026**: Initial release with billion-scale GPU-SSD search, C++ and Python interfaces, and SPDK and memory backends
 
-**#1: Reproduce all figures.**
+---
 
-```bash
-./ae/scripts/run_all.sh
-```
+## 📖 Citation
 
-This command takes approximately 4 hours at billion scale. Rerunning an experiment replaces its directory in `ae/results/`.
+If you use Quiver in your research, please cite our forthcoming ATC'26 paper:
 
-**#2: Reproduce selected figures.** Pass a name from the table below:
-
-```bash
-./ae/scripts/run_all.sh <name>
-```
-
-| Figure | Name | Time (h) |
-|--------|------|----------|
-| 1 | `latency_qps` | 0.5 |
-| 3 | `io_latency` | 0.5 |
-| 5 | `e2e` | 1.0 |
-| 6 | `fusion` | 1.0 |
-| 7 | `ablation` | 0.5 |
-| 8 | `q_sensitivity` | 0.5 |
-
-### Plot all figures
-
-Plot every completed figure with:
-
-```bash
-./ae/scripts/plot_all.py
-```
-
-To generate all six figures directly from the bundled pre-executed logs, without rerunning the experiments, use:
-
-```bash
-./ae/scripts/plot_all.py ae/results/Pre-executed-logs
-```
-
-Each PDF is saved in `ae/figures/`. The number is the paper figure, and the suffix is the name in the table above.
-
-<img src="readme-img/fig-list.jpg" alt="PDFs written by plot_all.py" width="500">
-
-`figure1_latency_qps.pdf` is the reproduced Figure 1.
-
-<img src="readme-img/figure1_latency_qps.png" alt="Reproduced Figure 1" width="500">
-
-### Detailed claims & Experimental result verification
-
-**Major Claim 1:** At matched Recall@10, Quiver advances the throughput-latency Pareto frontier over existing graph-based GPU-SSD ANNS systems.
-
-Sub-claims:
-
-- vs. FlashANNS (Figure 5): peak throughput is 28–55% higher. At the same throughput, P99 latency is 47–68% lower.
-- vs. GustANN (Figure 5): the same peak throughput, and P99 latency is 81–87% lower.
-- Figure 1: Quiver dominates both baselines.
-
-Verification:
-
-```bash
-./ae/scripts/run_all.sh latency_qps
-./ae/scripts/run_all.sh e2e
-```
-
-**Major Claim 2:** At matched Recall@10, Quiver outperforms the cluster-based GPU-SSD system FusionANNS in peak throughput and under P99 latency constraints.
-
-Sub-claims:
-
-- On SIFT-1B and DEEP-1B (Figure 6), peak throughput is 3.4×–3.8× higher.
-- Under a 15 ms P99 budget (Figure 6), throughput is 9.1×–13.1× higher.
-
-Verification:
-
-```bash
-./ae/scripts/run_all.sh fusion
-```
-
-**Major Claim 3:** Quiver's In-Kernel Query Switching and Occupancy-Aware Context Switching synergistically improve performance, while Q_num balances GPU utilization against queueing delay.
-
-Sub-claims:
-
-- In-Kernel Query Switching (+S, Figure 7a): 16.3%–65.1% higher than FlashANNS at a 10 ms P99 target.
-- Occupancy-Aware Context Switching (+C, Figure 7a): with +S, 43.9%–96.7% higher than FlashANNS.
-- I/O-induced latency is 2.0× lower than FlashANNS and 4.6× lower than GustANN (Figure 7b).
-- GPU utilization (Figure 8b): raising Q_num from 1 to 8 increases utilization from 42.8% to 95.0%.
-- Throughput peak (Figure 8a): Q_num = 4 at Recall@10 of 0.90 and 0.94, and Q_num = 2 at 0.96.
-
-Verification:
-
-```bash
-./ae/scripts/run_all.sh ablation
-./ae/scripts/run_all.sh q_sensitivity
+```bibtex
+@inproceedings{wu2026quiver,
+  author    = {Puqing Wu and Minhui Xie and Hao Guo and Jie Yin and
+               Sen Yang and Youyou Lu and Yunpeng Chai},
+  title     = {Quiver: Taming Throughput-Latency Tradeoff in {GPU-SSD} {ANNS}},
+  booktitle = {2026 USENIX Annual Technical Conference (USENIX ATC 26)},
+  year      = {2026},
+  note      = {To appear}
+}
 ```

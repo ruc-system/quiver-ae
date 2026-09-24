@@ -20,6 +20,7 @@ build-stats-*/
 /exps/
 /.worktrees/
 __pycache__/
+*.egg-info/
 *.txt
 !src/shared/io/CMakeLists.txt
 !src/shared/io/spdk/CMakeLists.txt
@@ -57,6 +58,7 @@ probe_outputs/
 !/ae/results/Pre-executed-logs/
 !/ae/results/Pre-executed-logs/**
 /readme-img/*.png
+!/readme-img/e2e.png
 /readme-img/*.jpg
 /.github/
 /.vscode/

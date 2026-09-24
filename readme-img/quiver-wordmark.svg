@@ -1,0 +1,21 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 160" role="img" aria-labelledby="title desc">
+  <title id="title">Quiver</title>
+  <desc id="desc">The Quiver wordmark with a stylized Q and lightning bolt.</desc>
+  <style>
+    .ink-stroke { stroke: #434343; }
+    .ink-fill { fill: #434343; }
+
+    @media (prefers-color-scheme: dark) {
+      .ink-stroke { stroke: #F3F4F6; }
+      .ink-fill { fill: #F3F4F6; }
+    }
+  </style>
+
+  <circle class="ink-stroke" cx="78" cy="76" r="45" fill="none" stroke-width="14"/>
+  <path d="M5 0h25L18 25h20L0 65l10-30h-20z"
+        transform="translate(104 98) rotate(-35)" fill="#FBBF24"/>
+
+  <text class="ink-fill" x="151" y="111"
+        font-family="Arial, 'Liberation Sans', Helvetica, sans-serif"
+        font-size="92" font-weight="400">uiver</text>
+</svg>

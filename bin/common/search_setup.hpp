@@ -199,4 +199,21 @@ inline void write_per_query_recall_csv(const SharedCliArgs& args,
   std::cout << "[Quiver] Per-query recall CSV: " << csv_path << std::endl;
 }
 
+inline void write_search_results(const SharedCliArgs& args,
+                                 const SearchSetup& setup,
+                                 const std::string& result_prefix) {
+  if (result_prefix.empty()) {
+    return;
+  }
+
+  const std::string ids_path = result_prefix + "_ids.bin";
+  const std::string distances_path = result_prefix + "_distances.bin";
+  write_typed_bin(ids_path, setup.nns.get(), setup.queries.count,
+                  static_cast<size_t>(args.topk));
+  write_typed_bin(distances_path, setup.distances.get(), setup.queries.count,
+                  static_cast<size_t>(args.topk));
+  std::cout << "[Quiver] Search results: " << ids_path << " "
+            << distances_path << std::endl;
+}
+
 }  // namespace bin_common

@@ -6,6 +6,7 @@
 #include <cstdlib>
 #include <fstream>
 #include <memory>
+#include <stdexcept>
 #include <string>
 #include <vector>
 
@@ -110,6 +111,32 @@ inline GroundTruthData load_ground_truth(const std::string& gt_file) {
   GroundTruthData gt;
   gt.values = read_typed_bin<int>(gt_file, gt.width, gt.count);
   return gt;
+}
+
+template <class T>
+inline void write_typed_bin(const std::string& path, const T* values,
+                            size_t count, size_t dims) {
+  if (count > static_cast<size_t>(INT32_MAX) ||
+      dims > static_cast<size_t>(INT32_MAX)) {
+    throw std::runtime_error("Binary result dimensions exceed int32 range");
+  }
+
+  std::ofstream output(path, std::ios::binary | std::ios::trunc);
+  if (!output.is_open()) {
+    throw std::runtime_error("Failed to open binary result file " + path);
+  }
+
+  const int32_t count_header = static_cast<int32_t>(count);
+  const int32_t dims_header = static_cast<int32_t>(dims);
+  output.write(reinterpret_cast<const char*>(&count_header),
+               sizeof(count_header));
+  output.write(reinterpret_cast<const char*>(&dims_header),
+               sizeof(dims_header));
+  output.write(reinterpret_cast<const char*>(values),
+               sizeof(T) * count * dims);
+  if (!output) {
+    throw std::runtime_error("Failed to write binary result file " + path);
+  }
 }
 
 }  // namespace bin_common
