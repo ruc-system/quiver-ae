@@ -128,9 +128,9 @@ If you use Quiver in your research, please cite our forthcoming ACM SIGOPS ATC '
 
 ```bibtex
 @inproceedings{wu2026quiver,
-  author    = {Puqing Wu and Minhui Xie and Hao Guo and Jie Yin and
-               Sen Yang and Youyou Lu and Yunpeng Chai},
-  title     = {Quiver: Taming Throughput-Latency Tradeoff in {GPU-SSD} {ANNS}},
+  author    = {Puqing Wu and Minhui Xie and Yiheng Tong and Jie Yin and
+               Sen Yang and Yunpeng Chai},
+  title     = {Quiver: Taming Throughput-Latency Tradeoff in GPU-SSD ANNS},
   booktitle = {ACM SIGOPS Annual Technical Conference (ACM SIGOPS ATC '26)},
   year      = {2026},
   note      = {To appear}
