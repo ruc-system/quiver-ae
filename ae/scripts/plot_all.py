@@ -294,9 +294,9 @@ def fig_latency_qps(corpus: Corpus, out: Path) -> bool:
     ax.annotate("", xy=(0.30, 0.65), xytext=(0.39, 0.76),
                 xycoords="axes fraction",
                 arrowprops={"arrowstyle": "->", "color": "#1F77B4", "lw": 1.0})
-    ax.text(0.31, 0.08, "Favor low latency", transform=ax.transAxes,
+    ax.text(0.27, 0.08, "Favor low latency", transform=ax.transAxes,
             color="#FF7F0E", fontsize=9, fontproperties=ps.semibold_font())
-    ax.annotate("", xy=(0.30, 0.33), xytext=(0.42, 0.17),
+    ax.annotate("", xy=(0.28, 0.33), xytext=(0.37, 0.17),
                 xycoords="axes fraction",
                 arrowprops={"arrowstyle": "->", "color": "#FF7F0E", "lw": 1.0})
     ax.text(0.66, 0.80, "Favor high QPS", transform=ax.transAxes,
