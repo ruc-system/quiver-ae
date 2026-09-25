@@ -64,6 +64,7 @@ cd ../..
 Build the Quiver search engine and SSD writer:
 
 ```bash
+export PATH=/usr/local/cuda-12.8/bin:"$PATH"  # Adjust for your CUDA 12.x install.
 cmake -S . -B build \
   -DCMAKE_BUILD_TYPE=Release \
   -DQUIVER_ENABLE_SPDK=ON \
@@ -100,7 +101,13 @@ The result IDs and distances are written to `/tmp/quiver-result_ids.bin` and `/t
 ### 🐍 Python
 
 ```python
+import numpy as np
+
 from quiver import IndexQuiver
+
+query_file = "/path/to/query.u8bin"
+count, dimensions = np.fromfile(query_file, dtype="<i4", count=2)
+queries = np.fromfile(query_file, dtype=np.uint8, offset=8).reshape(count, dimensions)
 
 idx = IndexQuiver(
     index_dir="/path/to/index",
